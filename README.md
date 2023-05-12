@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 Prerequisites:
   
   - [elf2dfuse](https://github.com/majbthrd/elf2dfuse)
-  - [dfu-util]((https://dfu-util.sourceforge.net/))
+  - [dfu-util](https://dfu-util.sourceforge.net/)
 
 Somehow, STM32CubeProgrammer is not able useing DFU to install the firmware. It is complaining about some readout 
 protection. Fortunately, dfu-util will to the trick and is usually available from the standard package repo of your 
