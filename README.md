@@ -216,8 +216,9 @@ Prerequisites:
   - [elf2dfuse](https://github.com/majbthrd/elf2dfuse)
   - [dfu-util]((https://dfu-util.sourceforge.net/))
 
-Somehow, using STM32CubeProgrammer is not able to use DFU to install the firmware. It is complaining about some readout 
-protection. So we need to use the dfu-util for linux, usually available on many linux distributions.
+Somehow, STM32CubeProgrammer is not able useing DFU to install the firmware. It is complaining about some readout 
+protection. Fortunately, dfu-util will to the trick and is usually available from the standard package repo of your 
+linux distro. But also compiling it yourself is not the hardest task.
 
 First is to compile the STM32 project (in Release mode), then 
 
@@ -230,6 +231,7 @@ $ sudo dfu-util -D SolidRun.dfu
 
 # To get from USB Bootloader to the firmware (e.g. after a power outtage)
 $ sudo dfu-util  -a 0 -s 0x08000000:leave
+```
 
 ## ToDos and features
 
