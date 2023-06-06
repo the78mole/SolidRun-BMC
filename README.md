@@ -240,3 +240,94 @@ $ sudo dfu-util  -a 0 -s 0x08000000:leave
   - Add a watchdog
   - Clean up sources to free a bit of memory for additional function
   - Fix the analog readout of voltage and current :-)
+
+## Full Installation sequence
+
+1. When you have your dfu file and dfu-utils available, plug in your USB cable into MGMT of the ARM server
+2. Execute dmesg to see, if the ST Bootloader responds
+
+```
+[ 3402.601630] usb 2-1.1.2.5: new full-speed USB device number 45 using ci_hdrc
+[ 3402.700309] usb 2-1.1.2.5: New USB device found, idVendor=0483, idProduct=df11
+[ 3402.707643] usb 2-1.1.2.5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[ 3402.715434] usb 2-1.1.2.5: Product: STM32  BOOTLOADER
+[ 3402.720615] usb 2-1.1.2.5: Manufacturer: STMicroelectronics
+[ 3402.726298] usb 2-1.1.2.5: SerialNumber: FFFFFFFEFFFF
+```
+
+First check, if the STM32 is recognized by dfu-util
+
+    sudo src/dfu-util -l
+
+```
+dfu-util 0.11-dev
+
+Copyright 2005-2009 Weston Schmidt, Harald Welte and OpenMoko Inc.
+Copyright 2010-2021 Tormod Volden and Stefan Schmidt
+This program is Free Software and has ABSOLUTELY NO WARRANTY
+Please report bugs to http://sourceforge.net/p/dfu-util/tickets/
+
+Found DFU: [0483:df11] ver=2200, devnum=22, cfg=1, intf=0, path="2-1.1.2.2", alt=0, name="@Internal Flash  /0x08000000/032*0001Kg", serial="FFFFFFFEFFFF"
+Found DFU: [0483:df11] ver=2200, devnum=22, cfg=1, intf=0, path="2-1.1.2.2", alt=1, name="@Option Bytes  /0x1FFFF800/01*016 e", serial="FFFFFFFEFFFF"
+```
+
+Download the firmware to the STM32 using dfu-util (from the dfu-util GIT repo with the binary compiled in src)
+
+    sudo src/dfu-util -d 0483:df11 -a 0 -D /home/glada/SolidRun-BMC.dfu
+
+Your output should look something like this
+```
+dfu-util 0.11-dev
+
+Copyright 2005-2009 Weston Schmidt, Harald Welte and OpenMoko Inc.
+Copyright 2010-2016 Tormod Volden and Stefan Schmidt
+This program is Free Software and has ABSOLUTELY NO WARRANTY
+Please report bugs to http://sourceforge.net/p/dfu-util/tickets/
+
+Opening DFU capable USB device...
+ID 0483:df11
+Run-time device DFU version 011a
+Claiming USB DFU Interface...
+Setting Alternate Setting #0 ...
+Determining device status: state = dfuERROR, status = 10
+dfuERROR, clearing status
+Determining device status: state = dfuIDLE, status = 0
+dfuIDLE, continuing
+DFU mode device DFU version 011a
+Device returned transfer size 2048
+DfuSe interface name: "Internal Flash  "
+file contains 1 DFU images
+parsing DFU image 1
+image for alternate setting 0, (1 elements, total size = 15760)
+parsing element 1, address = 0x08000000, size = 15752
+Download        [=========================] 100%        15752 bytes
+Download done.
+done parsing DfuSe file
+```
+
+Then instruct the STM32 to jump into application:
+
+    sudo src/dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave
+
+```
+[ 3418.036324] usb 2-1.1.2.5: USB disconnect, device number 45
+[ 3418.234911] usb 2-1.1.2.5: new full-speed USB device number 46 using ci_hdrc
+[ 3418.334561] usb 2-1.1.2.5: New USB device found, idVendor=0483, idProduct=5740
+[ 3418.341902] usb 2-1.1.2.5: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[ 3418.349682] usb 2-1.1.2.5: Product: SolidRun BMC
+[ 3418.354400] usb 2-1.1.2.5: Manufacturer: STMicroelectronics
+[ 3418.360076] usb 2-1.1.2.5: SerialNumber: 203930515252
+[ 3418.370435] cdc_acm 2-1.1.2.5:1.0: ttyACM7: USB ACM device
+```
+
+This tells you, that `/dev/ttyACM7` is your route to the MGMT interface.
+
+Copy the SerialNumber from dmesg output and paste it into a udev-rule to make the MGMT device get a unique name for this ARM server e.g., in `/etc/udev/rules.d/99-solidrun-mgmt.rules`.
+
+```
+    SUBSYSTEM=="tty", SUBSYSTEMS=="usb", DRIVERS=="usb", ATTRS{serial}=="203930515252", SYMLINK+="ttyMGMT-tux42"
+```
+
+After triggering udev using the command `udevadm trigger`, you should see your symlinked device `/dev/ttyMGMT-tux42` linked to `/dev/ttyACM7` (in the example above).
+
+If you now connect to this serial interface (e.g., using `screen /dev/ttyMGMT-tux42 115200`), you can issue a reset by pressing `R` and then `r` in the screen session console. Exit your screen with `CTRL+A D`. See your screen sessions with `screen -ls` and reattaching with `screen -r <PROCID>`. If it does not work, have a look, if you have the correct rights to access the real device (`/dev/ttyACM7`). Usually this is the group `dialout`.
